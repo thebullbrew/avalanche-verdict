@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Avalanche Verdict — Debt Payoff Order Judge</title>
+<meta name="description" content="Avalanche vs snowball vs minimums-only: a month-by-month simulation of your debts that names the payoff order that actually wins, and what the wrong order costs.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#160D0D">
+<link rel="icon" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+:root{
+  --bg:#160D0D; --surface:#221214; --surface2:#2A1719; --text:#F3EDE2;
+  --gold:#C19A4B; --gold-dim:#8A723C; --oxblood:#8A2E2E; --oxblood-hi:#A63A3A;
+  --muted:#B9A892; --line:#4A2E2A; --good:#C19A4B; --bad:#D9705F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman',serif;line-height:1.5;padding:0 16px 64px}
+.wrap{max-width:960px;margin:0 auto}
+header{text-align:center;padding:44px 8px 8px}
+.eyebrow{letter-spacing:.35em;text-transform:uppercase;color:var(--gold);font-size:.72rem}
+h1{font-size:clamp(2.2rem,6vw,3.6rem);font-weight:700;margin:.25em 0 .15em;color:var(--text)}
+.sub{color:var(--muted);font-style:italic;max-width:640px;margin:0 auto;font-size:1.02rem}
+.double-rule{border:none;border-top:3px double var(--gold);margin:26px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-top:3px double var(--gold);padding:22px;margin:20px 0}
+.card h2{font-size:1.25rem;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.card p.hint{color:var(--muted);font-size:.92rem;margin-bottom:14px}
+label{display:block;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;background:#170C0C;border:1px solid var(--line);color:var(--text);padding:10px;font-family:inherit;font-size:1rem;border-radius:2px}
+input:focus{outline:1px solid var(--gold)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.debt-row{display:grid;grid-template-columns:2fr 1.2fr .9fr 1.1fr auto;gap:10px;align-items:end;padding:12px 0;border-bottom:1px solid var(--line)}
+.debt-row:last-of-type{border-bottom:none}
+button{cursor:pointer;font-family:inherit}
+.btn{background:var(--oxblood);color:var(--gold);border:1px solid var(--gold-dim);padding:11px 20px;font-size:.95rem;letter-spacing:.08em;text-transform:uppercase}
+.btn:hover{background:var(--oxblood-hi)}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);text-transform:none;letter-spacing:0;padding:8px 12px}
+.btn.small{padding:8px 12px;font-size:.8rem}
+.preset-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.preset-row button{background:transparent;border:1px solid var(--gold-dim);color:var(--gold);padding:7px 13px;font-size:.85rem}
+.preset-row button:hover{background:var(--surface2)}
+.remove-btn{background:transparent;border:1px solid var(--line);color:var(--bad);width:38px;height:42px;font-size:1.1rem}
+.seal-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0 4px}
+.seal{width:168px;height:168px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--oxblood-hi),var(--oxblood) 62%,#5E1D1D);border:3px double var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:14px;box-shadow:0 0 0 6px #1B0E0E,0 0 34px rgba(138,46,46,.45)}
+.seal .seal-top{font-size:.6rem;letter-spacing:.3em;color:var(--gold);text-transform:uppercase}
+.seal .seal-main{font-size:1.28rem;font-weight:700;color:#F7E9C8;line-height:1.15;margin:4px 0}
+.seal .seal-sub{font-size:.68rem;color:#E4C98F;font-style:italic}
+.verdict-line{font-style:italic;color:var(--muted);text-align:center;max-width:620px}
+.hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-top:18px}
+.metric{background:var(--surface2);border:1px solid var(--line);padding:16px;text-align:center}
+.metric .k{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.metric .v{font-size:1.9rem;color:var(--gold);font-weight:700;margin:4px 0}
+.metric .v.red{color:var(--bad)}
+.metric .n{font-size:.82rem;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+th,td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--line)}
+th{color:var(--gold);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase}
+td:first-child,th:first-child{text-align:left}
+tr.win td{color:var(--gold);font-weight:700}
+tr.hl td{background:var(--surface2);color:var(--gold);font-weight:700}
+.bar-row{display:grid;grid-template-columns:130px 1fr 92px;gap:10px;align-items:center;margin:8px 0;font-size:.9rem}
+.bar-track{background:#170C0C;height:16px;border:1px solid var(--line)}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--oxblood),var(--gold))}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.saved-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+.saved-item span{color:var(--muted)}
+.note{font-size:.88rem;color:var(--muted)}
+.note b{color:var(--gold)}
+footer{text-align:center;color:var(--muted);font-size:.82rem;margin-top:34px}
+@media(max-width:640px){.debt-row{grid-template-columns:1fr 1fr}.debt-row .rm{grid-column:1/-1}.bar-row{grid-template-columns:96px 1fr 76px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">The Bull Brew · Daily Tools</div>
+  <h1>The Avalanche Verdict</h1>
+  <p class="sub">Avalanche, snowball, or minimums and hope — everybody has an opinion about payoff order. Opinions are cheap. This runs your actual debts, month by month, and shows you what each order costs.</p>
+</header>
+<hr class="double-rule">
+
+<section class="card">
+  <h2>Your Debts</h2>
+  <p class="hint">Every balance that's charging you interest. Mortgage and car loans count too — the math doesn't care what the debt bought.</p>
+  <div class="preset-row">
+    <button type="button" data-preset="cards">Preset · The Card Stack</button>
+    <button type="button" data-preset="mixed">Preset · House &amp; Cards</button>
+    <button type="button" data-preset="landlord">Preset · Landlord's Ledger</button>
+  </div>
+  <div id="debtList"></div>
+  <div class="actions">
+    <button class="btn small" id="addDebt" type="button">+ Add a debt</button>
+  </div>
+  <hr class="double-rule" style="margin:20px 0">
+  <div class="grid">
+    <div>
+      <label for="extra">Extra cash per month ($)</label>
+      <input id="extra" type="number" min="0" step="10" value="300">
+    </div>
+    <div>
+      <label for="planName">Plan name (for saving)</label>
+      <input id="planName" type="text" value="My payoff plan">
+    </div>
+  </div>
+  <p class="note" style="margin-top:12px">Your total monthly attack budget is the sum of all minimums <b>plus</b> the extra. When a debt dies, its minimum rolls into the next target — that's the whole engine, in both methods.</p>
+</section>
+
+<section class="card">
+  <h2>The Verdict</h2>
+  <div class="seal-wrap">
+    <div class="seal">
+      <div class="seal-top">Verdict</div>
+      <div class="seal-main" id="sealMain">—</div>
+      <div class="seal-sub" id="sealSub">run the numbers</div>
+    </div>
+    <p class="verdict-line" id="verdictLine"></p>
+  </div>
+  <div class="hero-grid">
+    <div class="metric"><div class="k">Interest saved vs minimums</div><div class="v" id="mSaved">—</div><div class="n" id="mSavedN"></div></div>
+    <div class="metric"><div class="k">Debt-free date (winner)</div><div class="v" id="mDate">—</div><div class="n" id="mDateN"></div></div>
+    <div class="metric"><div class="k">Interest burned, minimums only</div><div class="v red" id="mBurn">—</div><div class="n">the do-almost-nothing path</div></div>
+    <div class="metric"><div class="k">Wrong-order penalty</div><div class="v red" id="mPenalty">—</div><div class="n" id="mPenaltyN"></div></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Three Orders, One Set of Debts</h2>
+  <p class="hint">Same debts, same monthly budget. Only the order changes.</p>
+  <table>
+    <thead><tr><th>Strategy</th><th>Debt-free</th><th>Months</th><th>Total interest</th><th>First debt gone</th></tr></thead>
+    <tbody id="stratBody"></tbody>
+  </table>
+  <div id="bars" style="margin-top:16px"></div>
+</section>
+
+<section class="card">
+  <h2>Attack Order — The Winner's Hit List</h2>
+  <p class="hint">Minimums on everything, always. Every spare dollar goes to target #1 until it's dead, then rolls down.</p>
+  <table>
+    <thead><tr><th>#</th><th>Debt</th><th>Balance</th><th>APR</th><th>Interest / yr at today's balance</th><th>Gone by</th></tr></thead>
+    <tbody id="orderBody"></tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>What Extra Cash Actually Buys</h2>
+  <p class="hint">Winner's method, different extra amounts. Small extras early are worth more than big extras late — interest compounds against you until you compound against it.</p>
+  <table>
+    <thead><tr><th>Extra / mo</th><th>Debt-free</th><th>Months</th><th>Total interest</th><th>Interest saved vs $0 extra</th></tr></thead>
+    <tbody id="sensBody"></tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Save This Plan</h2>
+  <div class="actions">
+    <button class="btn" id="savePlan" type="button">Save plan</button>
+    <button class="btn" id="copySummary" type="button">Copy summary</button>
+  </div>
+  <div id="savedList" style="margin-top:10px"></div>
+</section>
+
+<section class="card">
+  <h2>The Method</h2>
+  <p class="note"><b>Real simulation, not a rule of thumb.</b> Each strategy is simulated month by month: interest accrues on every balance at APR ÷ 12, minimums are paid on everything, and the remaining budget attacks one target at a time. When a debt dies, its freed minimum joins the attack. Minimums-only never rolls anything — freed money is treated as spent, which is what actually happens to most people.</p>
+  <p class="note" style="margin-top:10px"><b>Avalanche</b> targets the highest APR first — mathematically the cheapest order, always. <b>Snowball</b> targets the smallest balance first — it costs a little interest and buys quick wins. This tool prices that trade honestly: if the snowball's interest penalty is small and it kills a debt months sooner, the verdict says so. Motivation you actually use beats a perfect plan you quit in March.</p>
+  <p class="note" style="margin-top:10px"><b>One warning:</b> never let the order debate delay the extra payment. The gap between minimums-only and <i>either</i> method dwarfs the gap between the two methods. Pick the winner above, automate it, and go look at houses.</p>
+</section>
+
+<footer>The Avalanche Verdict · A Bull Brew daily tool · All math runs locally in your browser. Not financial advice — a calculator with opinions.</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => isFinite(n) ? '$' + Math.round(n).toLocaleString('en-US') : 'never';
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthLabel(m){
+  if(!isFinite(m)) return 'never';
+  const d = new Date(); d.setMonth(d.getMonth() + m);
+  return MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+}
+const PRESETS = {
+  cards: [
+    {name:'Big-bank card', balance:6400, apr:24.99, min:175},
+    {name:'Store card', balance:2100, apr:19.99, min:65},
+    {name:'Personal loan', balance:8500, apr:11.5, min:185}
+  ],
+  mixed: [
+    {name:'Rewards card', balance:4800, apr:22.99, min:105},
+    {name:'Car loan', balance:14200, apr:7.9, min:285},
+    {name:'HELOC', balance:26000, apr:8.75, min:240},
+    {name:'Old student loan', balance:9800, apr:5.4, min:115}
+  ],
+  landlord: [
+    {name:'Business card (reno)', balance:9200, apr:21.99, min:195},
+    {name:'Appliance store card', balance:1750, apr:26.99, min:55},
+    {name:'Supplier note', balance:2600, apr:6.5, min:90}
+  ]
+};
+let debts = JSON.parse(JSON.stringify(PRESETS.cards));
+
+function renderDebts(){
+  $('debtList').innerHTML = debts.map((d,i)=>`
+    <div class="debt-row">
+      <div><label>Debt name</label><input data-i="${i}" data-f="name" type="text" value="${d.name.replace(/"/g,'&quot;')}"></div>
+      <div><label>Balance ($)</label><input data-i="${i}" data-f="balance" type="number" min="0" step="50" value="${d.balance}"></div>
+      <div><label>APR (%)</label><input data-i="${i}" data-f="apr" type="number" min="0" step="0.1" value="${d.apr}"></div>
+      <div><label>Minimum ($/mo)</label><input data-i="${i}" data-f="min" type="number" min="0" step="5" value="${d.min}"></div>
+      <div class="rm"><button type="button" class="remove-btn" data-rm="${i}" title="Remove">×</button></div>
+    </div>`).join('');
+  document.querySelectorAll('#debtList input').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const i = +e.target.dataset.i, f = e.target.dataset.f;
+      debts[i][f] = f === 'name' ? e.target.value : (parseFloat(e.target.value) || 0);
+      calc();
+    });
+  });
+  document.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click', ()=>{
+    if(debts.length > 1){ debts.splice(+b.dataset.rm,1); renderDebts(); calc(); }
+  }));
+}
+
+function simulate(list, extra, mode){
+  const ds = list.filter(d=>d.balance>0).map(d=>({name:d.name, bal:d.balance, apr:d.apr, min:d.min, goneAt:Infinity}));
+  if(!ds.length) return {months:0, interest:0, order:[], firstGone:0};
+  const baseBudget = ds.reduce((s,d)=>s+d.min,0) + (mode==='min' ? 0 : extra);
+  let months = 0, interest = 0;
+  const order = [];
+  while(ds.some(d=>d.bal>0.005) && months < 1200){
+    months++;
+    // accrue interest
+    ds.forEach(d=>{ if(d.bal>0){ const it = d.bal * (d.apr/100/12); d.bal += it; interest += it; } });
+    let budget = baseBudget;
+    // minimums first
+    ds.forEach(d=>{ if(d.bal>0 && budget>0){ const p = Math.min(d.bal, d.min, budget); d.bal -= p; budget -= p; } });
+    // attack phase
+    if(mode !== 'min'){
+      const targets = ds.filter(d=>d.bal>0.005).sort((a,b)=>{
+        if(mode==='avalanche') return b.apr - a.apr || a.bal - b.bal;
+        return a.bal - b.bal || b.apr - a.apr;
+      });
+      for(const t of targets){
+        if(budget<=0) break;
+        const p = Math.min(t.bal, budget); t.bal -= p; budget -= p;
+      }
+    }
+    ds.forEach(d=>{ if(d.bal<=0.005 && d.goneAt===Infinity && months>0){ d.bal=0; d.goneAt=months; if(!order.find(o=>o.name===d.name)) order.push({name:d.name, goneAt:months}); } });
+  }
+  const alive = ds.some(d=>d.bal>0.005);
+  const totalMonths = alive ? Infinity : months;
+  const gones = ds.map(d=>d.goneAt).filter(isFinite);
+  return { months: totalMonths, interest: alive ? Infinity : interest, order,
+           firstGone: gones.length ? Math.min(...gones) : Infinity,
+           goneMap: Object.fromEntries(ds.map(d=>[d.name, d.goneAt])) };
+}
+
+let last = null;
+function calc(){
+  const extra = parseFloat($('extra').value) || 0;
+  const clean = debts.filter(d=>d.balance>0);
+  if(!clean.length){ $('verdictLine').textContent = 'Add at least one debt with a balance.'; return; }
+  const av = simulate(clean, extra, 'avalanche');
+  const sn = simulate(clean, extra, 'snowball');
+  const mn = simulate(clean, 0, 'min');
+  const results = [
+    {key:'avalanche', label:'Avalanche (highest APR first)', r: av},
+    {key:'snowball', label:'Snowball (smallest balance first)', r: sn},
+    {key:'min', label:'Minimums only (no rollover)', r: mn}
+  ];
+  // winner: cheapest interest among real plans; snowball can steal it if penalty is trivial and first win is much sooner
+  let winner = 'avalanche';
+  const penalty = sn.interest - av.interest;
+  if(isFinite(sn.interest) && isFinite(av.interest)){
+    const trivial = penalty <= Math.max(150, av.interest * 0.03);
+    const fasterFirst = sn.firstGone <= av.firstGone - 3;
+    if(penalty <= 0) winner = 'snowball';
+    else if(trivial && fasterFirst) winner = 'snowball';
+  }
+  const winR = winner === 'avalanche' ? av : sn;
+  const loseR = winner === 'avalanche' ? sn : av;
+  const saved = isFinite(mn.interest) && isFinite(winR.interest) ? mn.interest - winR.interest : Infinity;
+  const monthsEarly = isFinite(mn.months) && isFinite(winR.months) ? mn.months - winR.months : Infinity;
+
+  // seal
+  let seal, sealSub, line;
+  if(!isFinite(winR.months)){
+    seal = 'PAY MORE'; sealSub = 'this budget never wins';
+    line = 'At this budget the debts outrun the payments — interest eats the minimums. Raise the extra, or call the highest-APR lender and negotiate the rate down before you pay another month.';
+  } else if(winner === 'avalanche' && penalty > Math.max(150, av.interest * 0.03)){
+    seal = 'AVALANCHE WINS'; sealSub = 'kill the dearest debt first';
+    line = `The snowball's quick wins cost ${fmt(penalty)} extra in interest here — too dear. Attack the highest APR, let the small balances wait their turn, and pocket the difference.`;
+  } else if(winner === 'snowball'){
+    seal = 'SNOWBALL WINS'; sealSub = 'take the quick win';
+    line = penalty > 0
+      ? `The snowball costs just ${fmt(penalty)} more in interest but kills its first debt in month ${sn.firstGone} instead of month ${av.firstGone}. Cheap motivation — take it, and don't quit.`
+      : `The snowball is also the cheapest order here — smallest balance and worst rate are the same fight. No trade-off. Roll it.`;
+  } else {
+    seal = 'CLOSE CALL'; sealSub = 'either order beats standing still';
+    line = `The two methods land within ${fmt(Math.abs(penalty))} of each other. Pick the one you'll still be doing in six months — consistency is the whole game.`;
+    if(winner==='avalanche'){ seal='AVALANCHE WINS'; sealSub='cheapest — by a nose'; }
+  }
+  $('sealMain').textContent = seal;
+  $('sealSub').textContent = sealSub;
+  $('verdictLine').textContent = line;
+
+  $('mSaved').textContent = fmt(saved);
+  $('mSavedN').textContent = isFinite(monthsEarly) ? monthsEarly + ' months sooner than minimums' : 'minimums never finish';
+  $('mDate').textContent = isFinite(winR.months) ? monthLabel(winR.months) : 'Never';
+  $('mDateN').textContent = isFinite(winR.months) ? 'in ' + winR.months + ' months' : 'raise the extra payment';
+  $('mBurn').textContent = fmt(mn.interest);
+  $('mPenalty').textContent = fmt(Math.abs(penalty));
+  $('mPenaltyN').textContent = penalty >= 0 ? 'what the snowball costs extra' : 'what the avalanche costs extra';
+
+  $('stratBody').innerHTML = results.map(x=>`
+    <tr class="${(x.key===winner)?'win':''}">
+      <td>${x.label}${x.key===winner?' ★':''}</td>
+      <td>${monthLabel(x.r.months)}</td>
+      <td>${isFinite(x.r.months)?x.r.months:'—'}</td>
+      <td>${fmt(x.r.interest)}</td>
+      <td>${isFinite(x.r.firstGone)?'month '+x.r.firstGone:'—'}</td>
+    </tr>`).join('');
+
+  const maxInt = Math.max(...results.map(x=>isFinite(x.r.interest)?x.r.interest:0), 1);
+  $('bars').innerHTML = results.map(x=>{
+    const v = isFinite(x.r.interest)?x.r.interest:0;
+    return `<div class="bar-row"><span>${x.key==='min'?'Minimums':x.key==='avalanche'?'Avalanche':'Snowball'}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, v/maxInt*100)}%"></div></div><span>${fmt(x.r.interest)}</span></div>`;
+  }).join('');
+
+  // attack order for winner
+  const sorted = [...clean].sort((a,b)=> winner==='avalanche' ? (b.apr - a.apr || a.balance - b.balance) : (a.balance - b.balance || b.apr - a.apr));
+  $('orderBody').innerHTML = sorted.map((d,i)=>`
+    <tr><td>${i+1}</td><td>${d.name}</td><td>${fmt(d.balance)}</td><td>${d.apr}%</td><td>${fmt(d.balance * d.apr/100)}</td><td>${monthLabel(winR.goneMap[d.name])}</td></tr>`).join('');
+
+  // sensitivity on winner method
+  const base = simulate(clean, 0, winner);
+  $('sensBody').innerHTML = [0,100,200,300,400,500].map(x=>{
+    const r = simulate(clean, x, winner);
+    const sv = isFinite(base.interest) && isFinite(r.interest) ? base.interest - r.interest : NaN;
+    return `<tr class="${x===extra?'hl':''}"><td>${fmt(x)}</td><td>${monthLabel(r.months)}</td><td>${isFinite(r.months)?r.months:'—'}</td><td>${fmt(r.interest)}</td><td>${isFinite(sv)?fmt(sv):'—'}</td></tr>`;
+  }).join('');
+
+  last = { winner, av, sn, mn, extra, saved, penalty };
+}
+
+function summaryText(){
+  if(!last) return '';
+  const name = $('planName').value || 'My payoff plan';
+  const winLabel = last.winner === 'avalanche' ? 'AVALANCHE' : 'SNOWBALL';
+  return `${name} — The Avalanche Verdict\nMethod: ${winLabel} · Extra/mo: ${fmt(last.extra)}\nDebt-free: ${monthLabel(last[last.winner].months)} (${last[last.winner].months} months)\nInterest (${winLabel.toLowerCase()}): ${fmt(last[last.winner].interest)} · Snowball: ${fmt(last.sn.interest)} · Avalanche: ${fmt(last.av.interest)} · Minimums only: ${fmt(last.mn.interest)}\nSaved vs minimums: ${fmt(last.saved)} · Wrong-order penalty: ${fmt(Math.abs(last.penalty))}\nDebts: ${debts.filter(d=>d.balance>0).map(d=>`${d.name} ${fmt(d.balance)} @ ${d.apr}%`).join('; ')}`;
+}
+
+function renderSaved(){
+  const plans = JSON.parse(localStorage.getItem('avalanche-verdict-plans') || '[]');
+  $('savedList').innerHTML = plans.length ? plans.map((p,i)=>`
+    <div class="saved-item"><div><b>${p.name}</b><br><span>${p.text.split('\n')[1]} · Debt-free ${p.text.match(/Debt-free: ([^·(]+)/)?.[1]||''}</span></div>
+    <button class="btn ghost" data-del="${i}" type="button">Delete</button></div>`).join('')
+    : '<p class="note">No saved plans yet.</p>';
+  document.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
+    const plans2 = JSON.parse(localStorage.getItem('avalanche-verdict-plans') || '[]');
+    plans2.splice(+b.dataset.del,1);
+    localStorage.setItem('avalanche-verdict-plans', JSON.stringify(plans2));
+    renderSaved();
+  }));
+}
+
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click', ()=>{
+  debts = JSON.parse(JSON.stringify(PRESETS[b.dataset.preset]));
+  renderDebts(); calc();
+}));
+$('addDebt').addEventListener('click', ()=>{
+  if(debts.length < 8){ debts.push({name:'New debt', balance:3000, apr:18, min:75}); renderDebts(); calc(); }
+});
+$('extra').addEventListener('input', calc);
+$('savePlan').addEventListener('click', ()=>{
+  const plans = JSON.parse(localStorage.getItem('avalanche-verdict-plans') || '[]');
+  plans.push({name: $('planName').value || 'My payoff plan', text: summaryText()});
+  localStorage.setItem('avalanche-verdict-plans', JSON.stringify(plans));
+  renderSaved();
+});
+$('copySummary').addEventListener('click', async ()=>{
+  try{ await navigator.clipboard.writeText(summaryText()); $('copySummary').textContent = 'Copied ✓'; setTimeout(()=>$('copySummary').textContent='Copy summary', 1600); }
+  catch(e){ alert(summaryText()); }
+});
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+renderDebts(); calc(); renderSaved();
+</script>
+</body>
+</html>
